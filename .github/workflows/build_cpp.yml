@@ -10,7 +10,7 @@ on:
         description: 'Tag, branch or commit'
         required: true
         default: 'v1.5.1'
-      build:
+      builds:
         type: choice
         description: Platforms
         required: true
