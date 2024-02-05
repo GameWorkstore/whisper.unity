@@ -11,6 +11,8 @@ on:
         required: true
         default: 'v1.5.1'
       build:
+        type: choice
+        description: Platforms
         required: true
         options:
           - all
