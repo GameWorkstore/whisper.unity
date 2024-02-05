@@ -16,6 +16,7 @@ on:
         default: 'android-arm64'
         options:
           - all
+          - android
           - android-arm64
           - android-armv7
           - android-x86
@@ -254,7 +255,7 @@ jobs:
           if-no-files-found: error
 
   build-android-arm64:
-    if: ${{ github.event.inputs.build }} == 'android-arm64'
+    if: ${{ github.event.inputs.build }} == 'android-arm64' || ${{ github.event.inputs.build }} == 'android'
     name: Build for Android (arm64-v8a)
     runs-on: ubuntu-latest
     steps:          
