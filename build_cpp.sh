@@ -152,10 +152,13 @@ elif [ "$targets" = "mac_metal" ]; then
   build_mac_metal
 elif [ "$targets" = "ios" ]; then
   build_ios
-elif [ "$targets" = "android" ]; then
+elif [ "$targets" = "android-arm64" ]; then
   build_android_arm64
+elif [ "$targets" = "android-armv7" ]; then
   build_android_armv7
+elif [ "$targets" = "android-x86" ]; then
   build_android_x86
+elif [ "$targets" = "android-x86_64" ]; then
   build_android_x86_64
 else
   echo "Unknown targets: $targets"
