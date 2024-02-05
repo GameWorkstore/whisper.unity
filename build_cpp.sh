@@ -71,7 +71,7 @@ build_ios() {
   echo "Build files copied to $target_path"
 }
 
-build_android() {
+build_android_arm64() {
   clean_build
   echo "Starting building for Android..."
 
@@ -82,7 +82,58 @@ build_android() {
   echo "Build for Android complete!"
 
   artifact_path="$build_path/libwhisper.a"
-  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/arm64/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_armv7() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=armeabi-v7a -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/armv7/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_x86() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=x86 -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/x86/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_x86_64() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=x86_64 -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/x86_64/libwhisper.a"
   cp "$artifact_path" "$target_path"
 
   echo "Build files copied to $target_path"
@@ -91,7 +142,10 @@ build_android() {
 if [ "$targets" = "all" ]; then
   build_mac
   build_ios
-  build_android
+  build_android_arm64
+  build_android_armv7
+  build_android_x86
+  build_android_x86_64
 elif [ "$targets" = "mac" ]; then
   build_mac
 elif [ "$targets" = "mac_metal" ]; then
@@ -99,7 +153,10 @@ elif [ "$targets" = "mac_metal" ]; then
 elif [ "$targets" = "ios" ]; then
   build_ios
 elif [ "$targets" = "android" ]; then
-  build_android
+  build_android_arm64
+  build_android_armv7
+  build_android_x86
+  build_android_x86_64
 else
   echo "Unknown targets: $targets"
 fi
