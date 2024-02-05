@@ -11,9 +11,7 @@ on:
         required: true
         default: 'v1.5.1'
       build:
-        description: 'Tag, branch or commit'
         required: true
-        default: 'android-arm64'
         options:
           - all
           - android
