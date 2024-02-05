@@ -10,8 +10,19 @@ on:
         description: 'Tag, branch or commit'
         required: true
         default: 'v1.5.1'
+      build:
+        description: 'Tag, branch or commit'
+        required: true
+        default: 'android-arm64'
+        options:
+          - all
+          - android-arm64
+          - android-armv7
+          - android-x86
+          - android-x86_84
 jobs:
   build-windows:
+    if: ${{ github.event.inputs.build }} == 'windows'
     name: Build for Windows (x86_64)
     runs-on: windows-latest
     steps:
@@ -45,6 +56,7 @@ jobs:
           if-no-files-found: error
 
   build-windows-cuda:
+    if: ${{ github.event.inputs.build }} == 'windows-cuda'
     name: Build for Windows (x86_64, CUDA)
     runs-on: windows-latest
     steps:
@@ -84,6 +96,7 @@ jobs:
           if-no-files-found: error
           
   build-linux:
+    if: ${{ github.event.inputs.build }} == 'linux'
     name: Build for Linux (x86_64)
     runs-on: ubuntu-20.04
     steps:
@@ -112,6 +125,7 @@ jobs:
           if-no-files-found: error
 
   build-linux-cuda:
+    if: ${{ github.event.inputs.build }} == 'linux-cuda'
     name: Build for Linux (x86_64, CUDA)
     runs-on: ubuntu-20.04
     steps:
@@ -149,6 +163,7 @@ jobs:
           if-no-files-found: error
           
   build-macos:
+    if: ${{ github.event.inputs.build }} == 'macos'
     name: Build for MacOS (ARM, x86_64)
     runs-on: macOS-latest
     steps:
@@ -177,6 +192,7 @@ jobs:
           if-no-files-found: error
 
   build-macos-metal:
+    if: ${{ github.event.inputs.build }} == 'macos-metal'
     name: Build for MacOS Metal (ARM, x86_64)
     runs-on: macOS-latest
     steps:
@@ -209,6 +225,7 @@ jobs:
           if-no-files-found: error
           
   build-ios:
+    if: ${{ github.event.inputs.build }} == 'ios'
     name: Build for iOS
     runs-on: macOS-latest
     steps:
@@ -236,7 +253,8 @@ jobs:
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error
 
-  build-android:
+  build-android-arm64:
+    if: ${{ github.event.inputs.build }} == 'android-arm64'
     name: Build for Android (arm64-v8a)
     runs-on: ubuntu-latest
     steps:          
@@ -270,11 +288,11 @@ jobs:
       - name: Run build script
         run: |
           cd whisper-unity
-          sh build_cpp.sh ../whisper-cpp/ android $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          sh build_cpp.sh ../whisper-cpp/ android-arm64 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
           
       - name: Upload results
         uses: actions/upload-artifact@v3
         with:
-          name: android
+          name: android-arm64
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error
