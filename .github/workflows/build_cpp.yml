@@ -23,7 +23,7 @@ on:
           - android-x86_84
 jobs:
   build-windows:
-    if: ${{ github.event.inputs.build }} == 'windows'
+    if: github.event.inputs.builds == 'windows'
     name: Build for Windows (x86_64)
     runs-on: windows-latest
     steps:
@@ -57,7 +57,7 @@ jobs:
           if-no-files-found: error
 
   build-windows-cuda:
-    if: ${{ github.event.inputs.build }} == 'windows-cuda'
+    if: github.event.inputs.builds == 'windows-cuda'
     name: Build for Windows (x86_64, CUDA)
     runs-on: windows-latest
     steps:
@@ -97,7 +97,7 @@ jobs:
           if-no-files-found: error
           
   build-linux:
-    if: ${{ github.event.inputs.build }} == 'linux'
+    if: github.event.inputs.builds == 'linux'
     name: Build for Linux (x86_64)
     runs-on: ubuntu-20.04
     steps:
@@ -126,7 +126,7 @@ jobs:
           if-no-files-found: error
 
   build-linux-cuda:
-    if: ${{ github.event.inputs.build }} == 'linux-cuda'
+    if: github.event.inputs.builds == 'linux-cuda'
     name: Build for Linux (x86_64, CUDA)
     runs-on: ubuntu-20.04
     steps:
@@ -164,7 +164,7 @@ jobs:
           if-no-files-found: error
           
   build-macos:
-    if: ${{ github.event.inputs.build }} == 'macos'
+    if: github.event.inputs.builds == 'macos'
     name: Build for MacOS (ARM, x86_64)
     runs-on: macOS-latest
     steps:
@@ -193,7 +193,7 @@ jobs:
           if-no-files-found: error
 
   build-macos-metal:
-    if: ${{ github.event.inputs.build }} == 'macos-metal'
+    if: github.event.inputs.builds == 'macos-metal'
     name: Build for MacOS Metal (ARM, x86_64)
     runs-on: macOS-latest
     steps:
@@ -226,7 +226,7 @@ jobs:
           if-no-files-found: error
           
   build-ios:
-    if: ${{ github.event.inputs.build }} == 'ios'
+    if: github.event.inputs.builds == 'ios'
     name: Build for iOS
     runs-on: macOS-latest
     steps:
@@ -255,8 +255,8 @@ jobs:
           if-no-files-found: error
 
   build-android-arm64:
-    if: ${{ github.event.inputs.build }} == 'android-arm64' || ${{ github.event.inputs.build }} == 'android'
-    name: Build for Android (arm64-v8a)
+    if: github.event.inputs.builds == 'android-arm64' || github.event.inputs.builds == 'android'
+    name: Build for Android (arm64)
     runs-on: ubuntu-latest
     steps:          
       - name: Install Java
@@ -290,6 +290,50 @@ jobs:
         run: |
           cd whisper-unity
           sh build_cpp.sh ../whisper-cpp/ android-arm64 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-arm64
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
+          if-no-files-found: error
+          
+  build-android-armv7:
+    if: github.event.inputs.builds == 'android-armv7' || github.event.inputs.builds == 'android'
+    name: Build for Android (armv7)
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+  
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "build-tools;33.0.2"
+          sdkmanager --install "cmake;3.22.1"
+          sdkmanager --install "ndk;21.3.6528147"
+          
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ android-armv7 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
           
       - name: Upload results
         uses: actions/upload-artifact@v3
