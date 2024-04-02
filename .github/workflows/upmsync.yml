@@ -2,7 +2,7 @@ name: UPM Sync
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 env:
   PACKAGEROOT: Packages/com.whisper.unity
