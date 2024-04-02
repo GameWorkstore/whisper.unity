@@ -17,6 +17,10 @@ jobs:
           git config --local user.name "game-workstore-bot"
           sudo apt-get install diffutils
       
+      - name: Get Branch
+        id: branch
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+        
       - uses: paulhatch/semantic-version@v3.2
         id: semantic
         with:
