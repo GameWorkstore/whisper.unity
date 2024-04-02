@@ -10,17 +10,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3.5.3
+        with:
+          fetch-depth: 0
+
       - name: Config
         run: |
           git config --local user.email "contact@gameworkstore.com"
           git config --local user.name "game-workstore-bot"
           sudo apt-get install diffutils
       
+      - name: Update README
+        run: |
+          if ! cmp --silent "README.md" "${{ env.PACKAGEROOT }}/README.md"; then
+              echo "different"
+              cp -f README.md ${{ env.PACKAGEROOT }}/README.md
+              git add --a
+              git commit -m "Updated README.md"
+              git push origin
+          fi
+
       - name: Get Branch
         id: branch
         run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
-        
+
       - uses: paulhatch/semantic-version@v3.2
         id: semantic
         with:
@@ -31,16 +45,8 @@ jobs:
       - name: Set Version
         run: |
           sed -i "s/0.0.0/${{ steps.semantic.outputs.version }}/g" ${{ env.PACKAGEROOT }}/package.json
-
-      - name: Update README
-        run: |
-          if ! cmp --silent "README.md" "${{ env.PACKAGEROOT }}/README.md"; then
-              echo "different"
-              cp -f README.md ${{ env.PACKAGEROOT }}/README.md
-              git add --a
-              git commit -m "Updated README.md"
-              git push origin
-          fi
+          git add ${{ env.PACKAGEROOT }}/package.json
+          git commit -m "Package Version ${{ steps.semantic.outputs.version }}"
 
       - name: Cook UPM
         run: |
