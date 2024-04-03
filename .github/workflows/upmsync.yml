@@ -40,7 +40,7 @@ jobs:
         with:
           branch: ${{ steps.branch.outputs.branch }}
           tag_prefix: ""
-          bump_each_commit: false
+          bump_each_commit: true
       
       - name: Set Version
         run: |
