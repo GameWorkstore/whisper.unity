@@ -398,7 +398,8 @@ namespace Whisper
             // for some reason on android one thread works
             // 10x faster than multithreading
 #if UNITY_ANDROID && !UNITY_EDITOR
-            param.ThreadsCount = 1;
+            var threads = UnityEngine.SystemInfo.processorCount - 1;
+            param.ThreadsCount = threads > 0? threads : 1;
 #endif
             return param;
          }
