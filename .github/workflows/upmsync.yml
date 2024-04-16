@@ -1,0 +1,62 @@
+name: UPM Sync
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+env:
+  PACKAGEROOT: Packages/com.whisper.unity
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.3
+        with:
+          fetch-depth: 0
+
+      - name: Config
+        run: |
+          git config --local user.email "contact@gameworkstore.com"
+          git config --local user.name "game-workstore-bot"
+          sudo apt-get install diffutils
+      
+      - name: Update README
+        run: |
+          if ! cmp --silent "README.md" "${{ env.PACKAGEROOT }}/README.md"; then
+              echo "different"
+              cp -f README.md ${{ env.PACKAGEROOT }}/README.md
+              git add --a
+              git commit -m "Updated README.md"
+              git push origin
+          fi
+
+      - name: Get Branch
+        id: branch
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+
+      - uses: paulhatch/semantic-version@v3.2
+        id: semantic
+        with:
+          branch: ${{ steps.branch.outputs.branch }}
+          tag_prefix: ""
+          bump_each_commit: true
+      
+      - name: Set Version
+        run: |
+          sed -i "s/0.0.0/${{ steps.semantic.outputs.version }}/g" ${{ env.PACKAGEROOT }}/package.json
+          git add ${{ env.PACKAGEROOT }}/package.json
+          git commit -m "Package Version ${{ steps.semantic.outputs.version }}"
+
+      - name: Cook UPM
+        run: |
+          git subtree split -P ${{ env.PACKAGEROOT }}/ -b upm
+          git checkout upm
+          ls
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: upm
+          force: true

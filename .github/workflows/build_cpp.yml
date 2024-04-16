@@ -9,9 +9,21 @@ on:
       whisper_cpp_repo_ref:
         description: 'Tag, branch or commit'
         required: true
-        default: 'v1.4.2'
+        default: 'v1.5.1'
+      builds:
+        type: choice
+        description: Platforms
+        required: true
+        options:
+          - all
+          - android
+          - android-arm64
+          - android-armv7
+          - android-x86
+          - android-x86_84
 jobs:
   build-windows:
+    if: github.event.inputs.builds == 'windows'
     name: Build for Windows (x86_64)
     runs-on: windows-latest
     steps:
@@ -33,7 +45,7 @@ jobs:
       - name: Run build script
         run: |
           cd whisper-unity
-          .\build_cpp.bat ..\whisper-cpp\
+          .\build_cpp.bat cpu ..\whisper-cpp\
           cd ${{ github.workspace }}\whisper-cpp\build\bin\Release
           ren whisper.dll libwhisper.dll
           
@@ -43,11 +55,11 @@ jobs:
           name: windows
           path: ${{ github.workspace }}/whisper-cpp/build/bin/Release/libwhisper.dll
           if-no-files-found: error
-          
-  build-linux:
-    name: Build for Linux (Ubuntu 18.04 x86_64)
-    runs-on: ubuntu-latest
-    container: ubuntu:18.04
+
+  build-windows-cuda:
+    if: github.event.inputs.builds == 'windows-cuda'
+    name: Build for Windows (x86_64, CUDA)
+    runs-on: windows-latest
     steps:
       - name: Clone whisper.unity
         uses: actions/checkout@v3
@@ -60,23 +72,51 @@ jobs:
           repository: ${{ github.event.inputs.whisper_cpp_repo }}
           ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
           path: whisper-cpp
-        
-      - name: Dependencies
-        run: |
-          apt-get update
-          apt-get install -y build-essential
-          apt-get install -y cmake
+          
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1
 
-      - name: Change gcc and g++
-        run: apt-get install -y gcc-8 g++-8
+      - name: Install CUDA Toolkit
+        id: cuda-toolkit
+        uses: Jimver/cuda-toolkit@v0.2.11
+        with:
+          cuda: '12.2.0'
+        
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          .\build_cpp.bat cuda ..\whisper-cpp\
+          cd ${{ github.workspace }}\whisper-cpp\build\bin\Release
+          ren whisper.dll libwhisper_cuda.dll
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-cuda
+          path: ${{ github.workspace }}/whisper-cpp/build/bin/Release/libwhisper_cuda.dll
+          if-no-files-found: error
+          
+  build-linux:
+    if: github.event.inputs.builds == 'linux'
+    name: Build for Linux (x86_64)
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
           
       - name: Run build script
         run: |
           cd whisper-unity
-          sh build_cpp_linux.sh ../whisper-cpp/
-        env:
-         CC:   gcc-8
-         CXX:  g++-8
+          sh build_cpp_linux.sh ../whisper-cpp/ cpu
           
       - name: Upload results
         uses: actions/upload-artifact@v3
@@ -84,8 +124,47 @@ jobs:
           name: linux
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.so
           if-no-files-found: error
+
+  build-linux-cuda:
+    if: github.event.inputs.builds == 'linux-cuda'
+    name: Build for Linux (x86_64, CUDA)
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+      
+      - name: Install CUDA Toolkit
+        id: cuda-toolkit
+        uses: Jimver/cuda-toolkit@v0.2.11
+        with:
+          cuda: '12.2.0'
+          method: 'network'
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp_linux.sh ../whisper-cpp cuda
+          cd ${{ github.workspace }}/whisper-cpp/build/
+          mv libwhisper.so libwhisper_cuda.so
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-cuda
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper_cuda.so
+          if-no-files-found: error
           
   build-macos:
+    if: github.event.inputs.builds == 'macos'
     name: Build for MacOS (ARM, x86_64)
     runs-on: macOS-latest
     steps:
@@ -112,8 +191,42 @@ jobs:
           name: macos
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.dylib
           if-no-files-found: error
+
+  build-macos-metal:
+    if: github.event.inputs.builds == 'macos-metal'
+    name: Build for MacOS Metal (ARM, x86_64)
+    runs-on: macOS-latest
+    steps:
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ mac_metal
+          cd ${{ github.workspace }}/whisper-cpp/build/
+          mv libwhisper.dylib libwhisper_metal.dylib
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-metal
+          path: |
+            ${{ github.workspace }}/whisper-cpp/build/libwhisper_metal.dylib
+            ${{ github.workspace }}/whisper-cpp/build/bin/ggml-metal.metal   
+          if-no-files-found: error
           
   build-ios:
+    if: github.event.inputs.builds == 'ios'
     name: Build for iOS
     runs-on: macOS-latest
     steps:
@@ -141,8 +254,9 @@ jobs:
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error
 
-  build-android:
-    name: Build for Android (arm64-v8a)
+  build-android-arm64:
+    if: github.event.inputs.builds == 'android-arm64' || github.event.inputs.builds == 'android'
+    name: Build for Android (arm64)
     runs-on: ubuntu-latest
     steps:          
       - name: Install Java
@@ -175,11 +289,143 @@ jobs:
       - name: Run build script
         run: |
           cd whisper-unity
-          sh build_cpp.sh ../whisper-cpp/ android $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          sh build_cpp.sh ../whisper-cpp/ android-arm64 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
           
       - name: Upload results
         uses: actions/upload-artifact@v3
         with:
-          name: android
+          name: android-arm64
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
+          if-no-files-found: error
+          
+  build-android-armv7:
+    if: github.event.inputs.builds == 'android-armv7' || github.event.inputs.builds == 'android'
+    name: Build for Android (armv7)
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+  
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "build-tools;33.0.2"
+          sdkmanager --install "cmake;3.22.1"
+          sdkmanager --install "ndk;21.3.6528147"
+          
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ android-armv7 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-armv7
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
+          if-no-files-found: error
+
+  build-android-x86:
+    if: github.event.inputs.builds == 'android-x86' || github.event.inputs.builds == 'android'
+    name: Build for Android (x86)
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "build-tools;33.0.2"
+          sdkmanager --install "cmake;3.22.1"
+          sdkmanager --install "ndk;21.3.6528147"
+          
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ android-x86 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-x86
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
+          if-no-files-found: error
+          
+  build-android-x86_64:
+    if: github.event.inputs.builds == 'android-x86_64' || github.event.inputs.builds == 'android'
+    name: Build for Android (x86_64)
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: zulu
+          java-version: 17
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+  
+      - name: Install Android NDK
+        run: |
+          sdkmanager --install "build-tools;33.0.2"
+          sdkmanager --install "cmake;3.22.1"
+          sdkmanager --install "ndk;21.3.6528147"
+          
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ android-x86_64 $ANDROID_HOME/ndk/21.3.6528147/build/cmake/android.toolchain.cmake
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-x86_64
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error

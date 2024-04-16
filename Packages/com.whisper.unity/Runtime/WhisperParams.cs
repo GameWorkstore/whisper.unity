@@ -1,10 +1,42 @@
 using System;
 using System.Runtime.InteropServices;
-using UnityEngine;
 using Whisper.Native;
+using Whisper.Utils;
 
 namespace Whisper
 {
+    /// <summary>
+    /// Wrapper of native C++ whisper context params.
+    /// Used during whisper model initialization.
+    /// </summary>
+    public class WhisperContextParams
+    {
+        private WhisperNativeContextParams _param;
+
+        /// <summary>
+        /// Native C++ struct parameters.
+        /// Do not change it in runtime directly, use setters.
+        /// </summary>
+        public WhisperNativeContextParams NativeParams => _param;
+
+        private WhisperContextParams(WhisperNativeContextParams param)
+        {
+            _param = param;
+        }
+
+        /// <summary>
+        /// Create a new default Whisper Context parameters.
+        /// </summary>
+        public static WhisperContextParams GetDefaultParams()
+        {
+            LogUtils.Verbose($"Requesting default Whisper Context params...");
+            var nativeParams = WhisperNative.whisper_context_default_params();
+            LogUtils.Verbose("Default Whisper Context params generated!");
+
+            return new WhisperContextParams(nativeParams);
+        }
+    }
+
     /// <summary>
     /// Wrapper of native C++ whisper parameters.
     /// Use it to safely change inference parameters.
@@ -38,6 +70,8 @@ namespace Whisper
              // reset callbacks
              _param.new_segment_callback = null;
              _param.new_segment_callback_user_data = IntPtr.Zero;
+             _param.progress_callback = null;
+             _param.progress_callback_user_data = IntPtr.Zero;
          }
      
          ~WhisperParams()
@@ -349,9 +383,9 @@ namespace Whisper
          public static WhisperParams GetDefaultParams(WhisperSamplingStrategy strategy =
              WhisperSamplingStrategy.WHISPER_SAMPLING_GREEDY)
          {
-             Debug.Log($"Requesting default Whisper params for strategy {strategy}...");
+             LogUtils.Verbose($"Requesting default Whisper params for strategy {strategy}...");
              var nativeParams = WhisperNative.whisper_full_default_params(strategy);
-             Debug.Log("Default params generated!");
+             LogUtils.Verbose("Default params generated!");
 
              var param = new WhisperParams(nativeParams)
              {
@@ -361,12 +395,13 @@ namespace Whisper
                  PrintTimestamps = false
              };
 
-             // for some reason on android one thread works
-             // 10x faster than multithreading
+            // for some reason on android one thread works
+            // 10x faster than multithreading
 #if UNITY_ANDROID && !UNITY_EDITOR
-             param.ThreadsCount = 1;
+            var threads = UnityEngine.SystemInfo.processorCount - 1;
+            param.ThreadsCount = threads > 0? threads : 1;
 #endif
-             return param;
+            return param;
          }
      }   
 }

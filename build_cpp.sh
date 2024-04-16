@@ -16,8 +16,9 @@ build_mac() {
   clean_build
   echo "Starting building for Mac..."
 
-  cmake -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF \
-   -DWHISPER_NO_AVX=ON -DWHISPER_NO_AVX2=ON -DWHISPER_NO_FMA=ON -DWHISPER_NO_F16C=ON ../
+  cmake -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DWHISPER_METAL=OFF \
+   -DWHISPER_NO_AVX=ON -DWHISPER_NO_AVX2=ON -DWHISPER_NO_FMA=ON -DWHISPER_NO_F16C=ON \
+   -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
   make
 
   echo "Build for Mac complete!"
@@ -29,12 +30,34 @@ build_mac() {
   echo "Build files copied to $target_path"
 }
 
+build_mac_metal() {
+  clean_build
+  echo "Starting building for Mac (Metal)..."
+
+  cmake -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DWHISPER_METAL=ON \
+   -DWHISPER_NO_AVX=ON -DWHISPER_NO_AVX2=ON -DWHISPER_NO_FMA=ON -DWHISPER_NO_F16C=ON \
+   -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Mac (Metal) complete!"
+
+  artifact_path="$build_path/libwhisper.dylib"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/MacOS/libwhisper_metal.dylib"
+  cp "$artifact_path" "$target_path"
+
+  artifact_path="$build_path/bin/ggml-metal.metal"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/MacOS/ggml-metal.metal"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
 build_ios() {
   clean_build
   echo "Starting building for ios..."
 
   cmake -DBUILD_SHARED_LIBS=OFF -DCMAKE_SYSTEM_NAME=iOS \
-  -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+  -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DWHISPER_METAL=OFF \
   -DCMAKE_SYSTEM_PROCESSOR=arm64 -DCMAKE_IOS_INSTALL_COMBINED=YES \
   -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
   make
@@ -48,7 +71,7 @@ build_ios() {
   echo "Build files copied to $target_path"
 }
 
-build_android() {
+build_android_arm64() {
   clean_build
   echo "Starting building for Android..."
 
@@ -59,7 +82,58 @@ build_android() {
   echo "Build for Android complete!"
 
   artifact_path="$build_path/libwhisper.a"
-  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/arm64/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_armv7() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=armeabi-v7a -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/armv7/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_x86() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=x86 -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/x86/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
+build_android_x86_64() {
+  clean_build
+  echo "Starting building for Android..."
+
+  cmake -DCMAKE_TOOLCHAIN_FILE="$android_sdk_path" -DANDROID_ABI=x86_64 -DBUILD_SHARED_LIBS=OFF \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for Android complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/Android/x86_64/libwhisper.a"
   cp "$artifact_path" "$target_path"
 
   echo "Build files copied to $target_path"
@@ -68,13 +142,24 @@ build_android() {
 if [ "$targets" = "all" ]; then
   build_mac
   build_ios
-  build_android
+  build_android_arm64
+  build_android_armv7
+  build_android_x86
+  build_android_x86_64
 elif [ "$targets" = "mac" ]; then
   build_mac
+elif [ "$targets" = "mac_metal" ]; then
+  build_mac_metal
 elif [ "$targets" = "ios" ]; then
   build_ios
-elif [ "$targets" = "android" ]; then
-  build_android
+elif [ "$targets" = "android-arm64" ]; then
+  build_android_arm64
+elif [ "$targets" = "android-armv7" ]; then
+  build_android_armv7
+elif [ "$targets" = "android-x86" ]; then
+  build_android_x86
+elif [ "$targets" = "android-x86_64" ]; then
+  build_android_x86_64
 else
   echo "Unknown targets: $targets"
 fi
