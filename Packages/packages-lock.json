@@ -6,6 +6,13 @@
       "source": "embedded",
       "dependencies": {}
     },
+    "com.hecomi.umicrophonewebgl": {
+      "version": "https://github.com/hecomi/uMicrophoneWebGL.git#upm",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "d137375dc9faee729cd1280bfc5c044c145c3650"
+    },
     "com.unity.ai.navigation": {
       "version": "1.1.5",
       "depth": 0,

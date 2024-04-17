@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using uMicrophoneWebGL;
 using UnityEngine;
 using UnityEngine.UI;
 using Whisper.Utils;
@@ -12,14 +13,12 @@ namespace Whisper.Samples
     /// </summary>
     public class MicrophoneDemo : MonoBehaviour
     {
-#if !UNITY_WEBGL || UNITY_EDITOR
-        
         public WhisperManager whisper;
         public MicrophoneRecord microphoneRecord;
         public bool streamSegments = true;
         public bool printLanguage = true;
 
-        [Header("UI")] 
+        [Header("UI")]
         public Button button;
         public Text buttonText;
         public Text outputText;
@@ -28,16 +27,16 @@ namespace Whisper.Samples
         public Toggle translateToggle;
         public Toggle vadToggle;
         public ScrollRect scroll;
-        
+
         private string _buffer;
 
         private void Awake()
         {
             whisper.OnNewSegment += OnNewSegment;
             whisper.OnProgress += OnProgressHandler;
-            
+
             microphoneRecord.OnRecordStop += OnRecordStop;
-            
+
             button.onClick.AddListener(OnButtonPressed);
             languageDropdown.value = languageDropdown.options
                 .FindIndex(op => op.text == whisper.language);
@@ -68,7 +67,7 @@ namespace Whisper.Samples
                 buttonText.text = "Record";
             }
         }
-        
+
         private async void OnRecordStop(AudioChunk recordedAudio)
         {
             buttonText.text = "Record";
@@ -76,9 +75,9 @@ namespace Whisper.Samples
 
             var sw = new Stopwatch();
             sw.Start();
-            
+
             var res = await whisper.GetTextAsync(recordedAudio.Data, recordedAudio.Frequency, recordedAudio.Channels);
-            if (res == null || !outputText) 
+            if (res == null || !outputText)
                 return;
 
             var time = sw.ElapsedMilliseconds;
@@ -88,17 +87,17 @@ namespace Whisper.Samples
             var text = res.Result;
             if (printLanguage)
                 text += $"\n\nLanguage: {res.Language}";
-            
+
             outputText.text = text;
             UiUtils.ScrollDown(scroll);
         }
-        
+
         private void OnLanguageChanged(int ind)
         {
             var opt = languageDropdown.options[ind];
             whisper.language = opt.text;
         }
-        
+
         private void OnTranslateChanged(bool translate)
         {
             whisper.translateToEnglish = translate;
@@ -110,7 +109,7 @@ namespace Whisper.Samples
                 return;
             timeText.text = $"Progress: {progress}%";
         }
-        
+
         private void OnNewSegment(WhisperSegment segment)
         {
             if (!streamSegments || !outputText)

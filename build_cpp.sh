@@ -139,6 +139,24 @@ build_android_x86_64() {
   echo "Build files copied to $target_path"
 }
 
+build_webgl() {
+  clean_build
+  echo "Starting building for WebGL..."
+
+  emcmake cmake ..
+  cmake -DCMAKE_BUILD_TYPE=Release \
+  -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF ../
+  make
+
+  echo "Build for WebGL complete!"
+
+  artifact_path="$build_path/libwhisper.a"
+  target_path="$unity_project/Packages/com.whisper.unity/Plugins/webGL/libwhisper.a"
+  cp "$artifact_path" "$target_path"
+
+  echo "Build files copied to $target_path"
+}
+
 if [ "$targets" = "all" ]; then
   build_mac
   build_ios
@@ -160,6 +178,8 @@ elif [ "$targets" = "android-x86" ]; then
   build_android_x86
 elif [ "$targets" = "android-x86_64" ]; then
   build_android_x86_64
+elif [ "$targets" = "webgl" ]; then
+  build_webgl
 else
   echo "Unknown targets: $targets"
 fi

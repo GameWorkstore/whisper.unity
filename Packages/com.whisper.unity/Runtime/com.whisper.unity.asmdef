@@ -1,7 +1,9 @@
 {
     "name": "com.whisper.unity",
     "rootNamespace": "",
-    "references": [],
+    "references": [
+        "GUID:a0e46bb72cc57454d9bb3fe65075ccdd"
+    ],
     "includePlatforms": [
         "Android",
         "Editor",

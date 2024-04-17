@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Samples/2 - Microphone/2 - Microphone.unity
+    guid: 2b6d678b6a8b949d0bbe7c64a49abbed
   m_configObjects: {}

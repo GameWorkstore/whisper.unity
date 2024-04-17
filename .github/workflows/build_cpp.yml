@@ -21,6 +21,7 @@ on:
           - android-armv7
           - android-x86
           - android-x86_84
+          - webgl
 jobs:
   build-windows:
     if: github.event.inputs.builds == 'windows'
@@ -427,5 +428,37 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: android-x86_64
+          path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
+          if-no-files-found: error
+  
+  build-android-x86_64:
+    if: github.event.inputs.builds == 'webgl'
+    name: Build for WebGL
+    runs-on: ubuntu-latest
+    steps:          
+      - name: Setup Emscripten toolchain
+        uses: mymindstorm/setup-emsdk@v14
+            
+      - name: Clone whisper.unity
+        uses: actions/checkout@v3
+        with:
+          path: whisper-unity
+          
+      - name: Clone whisper.cpp
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ github.event.inputs.whisper_cpp_repo }}
+          ref: ${{ github.event.inputs.whisper_cpp_repo_ref }}
+          path: whisper-cpp
+          
+      - name: Run build script
+        run: |
+          cd whisper-unity
+          sh build_cpp.sh ../whisper-cpp/ webgl
+          
+      - name: Upload results
+        uses: actions/upload-artifact@v3
+        with:
+          name: webgl
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error

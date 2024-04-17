@@ -26,6 +26,7 @@ jobs:
           if ! cmp --silent "README.md" "${{ env.PACKAGEROOT }}/README.md"; then
               echo "different"
               cp -f README.md ${{ env.PACKAGEROOT }}/README.md
+              cp -rf .github/ ${{ env.PACKAGEROOT }}/README.md
               git add --a
               git commit -m "Updated README.md"
               git push origin

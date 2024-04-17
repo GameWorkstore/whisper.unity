@@ -1,12 +1,15 @@
-﻿using System;
+﻿#if UNITY_WEBGL && !UNITY_EDITOR
+#define WEBGL_MICROPHONE
+#endif
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
+using uMicrophoneWebGL;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Windows;
 // ReSharper disable RedundantCast
-
-#if !UNITY_WEBGL || UNITY_EDITOR
 
 namespace Whisper.Utils
 {
@@ -21,11 +24,11 @@ namespace Whisper.Utils
         public float Length;
         public bool IsVoiceDetected;
     }
-    
+
     public delegate void OnVadChangedDelegate(bool isSpeechDetected);
     public delegate void OnChunkReadyDelegate(AudioChunk chunk);
     public delegate void OnRecordStopDelegate(AudioChunk recordedAudio);
-    
+
     /// <summary>
     /// Controls microphone input settings and recording. 
     /// </summary>
@@ -41,7 +44,7 @@ namespace Whisper.Utils
         public float chunksLengthSec = 0.5f;
         [Tooltip("Should microphone play echo when recording is complete?")]
         public bool echo = true;
-        
+
         [Header("Voice Activity Detection (VAD)")]
         [Tooltip("Should microphone check if audio input has speech?")]
         public bool useVad = true;
@@ -57,7 +60,7 @@ namespace Whisper.Utils
         public float vadFreqThd = 100.0f;
         [Tooltip("Optional indicator that changes color when speech detected")]
         [CanBeNull] public Image vadIndicatorImage;
-        
+
         [Header("VAD Stop")]
         [Tooltip("If true microphone will stop record when no speech detected")]
         public bool vadStop;
@@ -66,11 +69,17 @@ namespace Whisper.Utils
         [Tooltip("After how many seconds of silence microphone will stop record")]
         public float vadStopTime = 3f;
 
-        [Header("Microphone selection (optional)")] 
+        [Header("Microphone selection (optional)")]
         [Tooltip("Optional UI dropdown with all available microphone inputs")]
         [CanBeNull] public Dropdown microphoneDropdown;
         [Tooltip("The label of default microphone input in dropdown")]
         public string microphoneDefaultLabel = "Default microphone";
+
+        [Header("WebGL")]
+        public MicrophoneWebGL microphoneWebGL;
+#if WEBGL_MICROPHONE
+        private int _microphoneWebGLBufferSize = 0;
+#endif
 
         /// <summary>
         /// Raised when VAD status changed.
@@ -85,10 +94,9 @@ namespace Whisper.Utils
         /// Returns <see cref="maxLengthSec"/> or less of recorded audio.
         /// </summary>
         public event OnRecordStopDelegate OnRecordStop;
-        
+
         private int _lastVadPos;
         private AudioClip _clip;
-        private float _length;
         private int _lastChunkPos;
         private int _chunksLength;
         private float? _vadStopBegin;
@@ -108,17 +116,47 @@ namespace Whisper.Utils
             }
         }
 
+        public int SelectedMicDeviceIndex => Array.IndexOf(AvailableMicDevices, _selectedMicDevice);
+
         public int ClipSamples => _clip.samples * _clip.channels;
 
         public string RecordStartMicDevice { get; private set; }
-        public bool IsRecording { get; private set; }
+
+#if WEBGL_MICROPHONE
+        public bool IsRecording => microphoneWebGL.isRecording;
+#else
+        public bool IsRecording => Microphone.IsRecording(RecordStartMicDevice);
+#endif
         public bool IsVoiceDetected { get; private set; }
 
-        public IEnumerable<string> AvailableMicDevices => Microphone.devices;
+#if WEBGL_MICROPHONE
+        public string[] AvailableMicDevices => microphoneWebGL.devices.Select(t => t.label).ToArray();
+#else
+        public string[] AvailableMicDevices => Microphone.devices;
+#endif
 
         private void Awake()
         {
-            if(microphoneDropdown != null)
+#if WEBGL_MICROPHONE
+            microphoneWebGL.readyEvent.AddListener(OnReady);
+            microphoneWebGL.dataEvent.AddListener(OnDataEvent);
+#else
+            if (microphoneDropdown != null)
+            {
+                microphoneDropdown.options = AvailableMicDevices
+                    .Prepend(microphoneDefaultLabel)
+                    .Select(text => new Dropdown.OptionData(text))
+                    .ToList();
+                microphoneDropdown.value = microphoneDropdown.options
+                    .FindIndex(op => op.text == microphoneDefaultLabel);
+                microphoneDropdown.onValueChanged.AddListener(OnMicrophoneChanged);
+            }
+#endif
+        }
+
+        private void OnReady()
+        {
+            if (microphoneDropdown != null)
             {
                 microphoneDropdown.options = AvailableMicDevices
                     .Prepend(microphoneDefaultLabel)
@@ -130,13 +168,21 @@ namespace Whisper.Utils
             }
         }
 
+        private void OnDestroy()
+        {
+#if WEBGL_MICROPHONE
+            microphoneWebGL.readyEvent.RemoveListener(OnReady);
+            microphoneWebGL.dataEvent.RemoveListener(OnDataEvent);
+#endif
+        }
+
         private void Update()
         {
             if (!IsRecording)
                 return;
-            
+
             // lets check current mic position time
-            var micPos = Microphone.GetPosition(RecordStartMicDevice);
+            var micPos = GetMicPos();
             if (micPos < _lastMicPos)
             {
                 // looks like mic started recording in loop
@@ -148,7 +194,7 @@ namespace Whisper.Utils
                     StopRecord();
                     return;
                 }
-                
+
                 // all cool, we can work in loop
                 LogUtils.Verbose($"Mic made a new loop lap, continue recording.");
             }
@@ -158,7 +204,16 @@ namespace Whisper.Utils
             UpdateChunks(micPos);
             UpdateVad(micPos);
         }
-        
+
+        private int GetMicPos()
+        {
+#if WEBGL_MICROPHONE
+            return _microphoneWebGLBufferSize;
+#else
+            return Microphone.GetPosition(RecordStartMicDevice);
+#endif
+        }
+
         private void UpdateChunks(int micPos)
         {
             // is anyone even subscribe to do this?
@@ -168,10 +223,10 @@ namespace Whisper.Utils
             // check if chunks length is valid
             if (_chunksLength <= 0)
                 return;
-            
+
             // get current chunk length
             var chunk = GetMicPosDist(_lastChunkPos, micPos);
-            
+
             // send new chunks while there has valid size
             while (chunk > _chunksLength)
             {
@@ -192,12 +247,12 @@ namespace Whisper.Utils
                 chunk = GetMicPosDist(_lastChunkPos, micPos);
             }
         }
-        
+
         private void UpdateVad(int micPos)
         {
             if (!useVad)
                 return;
-            
+
             // get current recorded clip length
             var samplesCount = GetMicBufferLength(micPos);
             if (samplesCount <= 0)
@@ -209,7 +264,7 @@ namespace Whisper.Utils
             if (dt < vadUpdateRateSamples)
                 return;
             _lastVadPos = samplesCount;
-            
+
             // try to get sample for voice detection
             var data = GetMicBufferLast(micPos, vadContextSec);
             var vad = AudioUtils.SimpleVad(data, _clip.frequency, vadLastSec, vadThd, vadFreqThd);
@@ -217,11 +272,11 @@ namespace Whisper.Utils
             // raise event if vad has changed
             if (vad != IsVoiceDetected)
             {
-                _vadStopBegin = !vad ? Time.realtimeSinceStartup : (float?) null;
+                _vadStopBegin = !vad ? Time.realtimeSinceStartup : (float?)null;
                 IsVoiceDetected = vad;
-                OnVadChanged?.Invoke(vad);   
+                OnVadChanged?.Invoke(vad);
             }
-            
+
             // update vad indicator
             if (vadIndicatorImage)
             {
@@ -231,7 +286,7 @@ namespace Whisper.Utils
 
             UpdateVadStop();
         }
-        
+
         private void UpdateVadStop()
         {
             if (!vadStop || _vadStopBegin == null)
@@ -259,18 +314,40 @@ namespace Whisper.Utils
         {
             if (IsRecording)
                 return;
-            
-            RecordStartMicDevice = SelectedMicDevice;
-            _clip = Microphone.Start(RecordStartMicDevice, loop, maxLengthSec, frequency);
-            IsRecording = true;
 
+            RecordStartMicDevice = SelectedMicDevice;
+#if WEBGL_MICROPHONE
+            if (microphoneDropdown)
+            {
+                microphoneWebGL.micIndex = microphoneDropdown.value;
+            }
+
+            var freq = microphoneWebGL.selectedDevice.sampleRate;
+            var size = freq * maxLengthSec;
+            _microphoneWebGLBufferSize = 0;
+            _clip = AudioClip.Create("uMicrophoneWebGL-Recorded", size, 1, freq, true);
+            microphoneWebGL.Begin();
+#else
+            _clip = Microphone.Start(RecordStartMicDevice, loop, maxLengthSec, frequency);
+#endif
             _lastMicPos = 0;
             _madeLoopLap = false;
             _lastChunkPos = 0;
             _lastVadPos = 0;
             _vadStopBegin = null;
-            _chunksLength = (int) (_clip.frequency * _clip.channels * chunksLengthSec);
+            _chunksLength = (int)(_clip.frequency * _clip.channels * chunksLengthSec);
         }
+
+#if WEBGL_MICROPHONE
+        private void OnDataEvent(float[] input)
+        {
+            if (input == null) return;
+            int n = input.Length;
+            if (_microphoneWebGLBufferSize + n >= _clip.samples) return;
+            _clip.SetData(input, _microphoneWebGLBufferSize);
+            _microphoneWebGLBufferSize += n;
+        }
+#endif
 
         /// <summary>
         /// Stop microphone record.
@@ -278,9 +355,8 @@ namespace Whisper.Utils
         /// <param name="dropTimeSec">How many last recording seconds to drop.</param>
         public void StopRecord(float dropTimeSec = 0f)
         {
-            if (!IsRecording)
-                return;
-            
+            if (!IsRecording) return;
+
             // get all data from mic audio clip
             var data = GetMicBuffer(dropTimeSec);
             var finalAudio = new AudioChunk()
@@ -289,12 +365,15 @@ namespace Whisper.Utils
                 Channels = _clip.channels,
                 Frequency = _clip.frequency,
                 IsVoiceDetected = IsVoiceDetected,
-                Length = (float) data.Length / (_clip.frequency * _clip.channels)
+                Length = (float)data.Length / (_clip.frequency * _clip.channels)
             };
-            
+
             // stop mic audio recording
+#if WEBGL_MICROPHONE
+            microphoneWebGL.End();
+#else
             Microphone.End(RecordStartMicDevice);
-            IsRecording = false;
+#endif
             Destroy(_clip);
             LogUtils.Verbose($"Stopped microphone recording. Final audio length " +
                              $"{finalAudio.Length} ({finalAudio.Data.Length} samples)");
@@ -303,9 +382,9 @@ namespace Whisper.Utils
             if (IsVoiceDetected)
             {
                 IsVoiceDetected = false;
-                OnVadChanged?.Invoke(false);   
+                OnVadChanged?.Invoke(false);
             }
-            
+
             // play echo sound
             if (echo)
             {
@@ -324,20 +403,20 @@ namespace Whisper.Utils
         /// </summary>
         private float[] GetMicBuffer(float dropTimeSec = 0f)
         {
-            var micPos = Microphone.GetPosition(RecordStartMicDevice);
+            var micPos = GetMicPos();
             var len = GetMicBufferLength(micPos);
             if (len == 0) return Array.Empty<float>();
-            
+
             // drop last samples from length if necessary
-            var dropTimeSamples = (int) (_clip.frequency * dropTimeSec);
+            var dropTimeSamples = (int)(_clip.frequency * dropTimeSec);
             len = Math.Max(0, len - dropTimeSamples);
-            
+
             // get last len samples from recorded audio
             // offset used to get audio from previous circular buffer lap
             var data = new float[len];
             var offset = _madeLoopLap ? micPos : 0;
             _clip.GetData(data, offset);
-            
+
             return data;
         }
 
@@ -347,10 +426,10 @@ namespace Whisper.Utils
         private float[] GetMicBufferLast(int micPos, float lastSec)
         {
             var len = GetMicBufferLength(micPos);
-            if (len == 0) 
+            if (len == 0)
                 return Array.Empty<float>();
-            
-            var lastSamples = (int) (_clip.frequency * lastSec);
+
+            var lastSamples = (int)(_clip.frequency * lastSec);
             var dataLength = Math.Min(lastSamples, len);
             var offset = micPos - dataLength;
             if (offset < 0) offset = len + offset;
@@ -367,9 +446,9 @@ namespace Whisper.Utils
         {
             // looks like we just started recording and stopped it immediately
             // nothing was actually recorded
-            if (micPos == 0 && !_madeLoopLap) 
+            if (micPos == 0 && !_madeLoopLap)
                 return 0;
-            
+
             // get length of the mic buffer that we want to return
             // this need to account circular loop buffer
             var len = _madeLoopLap ? ClipSamples : micPos;
@@ -390,5 +469,3 @@ namespace Whisper.Utils
         }
     }
 }
-
-#endif

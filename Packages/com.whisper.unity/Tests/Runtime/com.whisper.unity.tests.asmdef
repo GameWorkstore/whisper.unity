@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "com.whisper.unity"
+        "com.whisper.unity",
+        "com.whisper.unity.microphone"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
