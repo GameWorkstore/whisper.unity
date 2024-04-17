@@ -431,7 +431,7 @@ jobs:
           path: ${{ github.workspace }}/whisper-cpp/build/libwhisper.a
           if-no-files-found: error
   
-  build-android-x86_64:
+  build-webgl:
     if: github.event.inputs.builds == 'webgl'
     name: Build for WebGL
     runs-on: ubuntu-latest
